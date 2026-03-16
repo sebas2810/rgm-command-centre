@@ -1,4 +1,4 @@
-import type Anthropic from '@anthropic-ai/sdk'
+import { BedrockAgentRuntimeClient, RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime'
 import { prisma } from '../db/client.js'
 import {
   brandElasticityMap,
@@ -10,11 +10,17 @@ import {
 
 type AsyncToolHandler = (input: Record<string, unknown>) => Promise<string>
 
+type ToolDefinition = {
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
+}
+
 export function createToolHandlers(): {
-  definitions: Anthropic.Tool[]
+  definitions: ToolDefinition[]
   handlers: Record<string, AsyncToolHandler>
 } {
-  const definitions: Anthropic.Tool[] = [
+  const definitions: ToolDefinition[] = [
     {
       name: 'calculate_price_impact',
       description: 'Calculate the financial impact of a price change for a specific brand at a specific retailer.',
@@ -139,6 +145,18 @@ export function createToolHandlers(): {
         type: 'object' as const,
         properties: {},
         required: [],
+      },
+    },
+    {
+      name: 'search_knowledge_base',
+      description: 'Search the RGM knowledge base for contextual information about market data, category insights, competitive intelligence, best practices, or historical analysis. Use this when the user asks about something not covered by the structured database tools.',
+      input_schema: {
+        type: 'object' as const,
+        properties: {
+          query: { type: 'string', description: 'Natural language search query' },
+          max_results: { type: 'number', description: 'Maximum number of results to return (default 5)' },
+        },
+        required: ['query'],
       },
     },
   ]
@@ -388,6 +406,46 @@ export function createToolHandlers(): {
           warning: deviations.filter(d => d.severity === 'warning').length,
           positive: deviations.filter(d => d.severity === 'none').length,
         },
+      })
+    },
+
+    search_knowledge_base: async (input) => {
+      const knowledgeBaseId = process.env.BEDROCK_KNOWLEDGE_BASE_ID
+      if (!knowledgeBaseId) {
+        return JSON.stringify({
+          info: 'Knowledge Base not configured yet. Set BEDROCK_KNOWLEDGE_BASE_ID environment variable.',
+          suggestion: 'Upload RGM documents (market reports, category reviews, competitive analyses) to an S3 bucket and connect it to a Bedrock Knowledge Base.',
+        })
+      }
+
+      const client = new BedrockAgentRuntimeClient({
+        region: process.env.AWS_REGION ?? 'eu-west-1',
+      })
+
+      const query = input.query as string
+      const maxResults = (input.max_results as number) ?? 5
+
+      const response = await client.send(new RetrieveCommand({
+        knowledgeBaseId,
+        retrievalQuery: { text: query },
+        retrievalConfiguration: {
+          vectorSearchConfiguration: {
+            numberOfResults: maxResults,
+          },
+        },
+      }))
+
+      const results = (response.retrievalResults ?? []).map((r, i) => ({
+        rank: i + 1,
+        content: r.content?.text ?? '',
+        score: r.score ?? 0,
+        source: r.location?.s3Location?.uri ?? 'unknown',
+      }))
+
+      return JSON.stringify({
+        query,
+        results_count: results.length,
+        results,
       })
     },
   }

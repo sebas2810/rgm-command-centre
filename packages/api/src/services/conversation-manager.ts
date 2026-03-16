@@ -1,9 +1,12 @@
-import Anthropic from '@anthropic-ai/sdk'
+import AnthropicBedrock from '@anthropic-ai/bedrock-sdk'
+import type { MessageParam, Tool } from '@anthropic-ai/sdk/resources/messages'
 import { planValidatorPrompt, rgmExpertPrompt, tradeNarrativePrompt } from './system-prompts.js'
 import { createToolHandlers } from '../mcp/tool-registry.js'
 
-const MODEL = 'claude-sonnet-4-20250514'
+// Bedrock model ID — Claude Sonnet 4 (cross-region inference for eu-west-1)
+const MODEL = process.env.BEDROCK_MODEL_ID ?? 'eu.anthropic.claude-sonnet-4-20250514-v1:0'
 const MAX_TOKENS = 4096
+const AWS_REGION = process.env.AWS_REGION ?? 'eu-west-1'
 
 const systemPrompts: Record<string, string> = {
   rgmExpert: rgmExpertPrompt,
@@ -24,17 +27,25 @@ type APIMessage = {
   content: string | Array<Record<string, unknown>>
 }
 
+type ToolDefinition = {
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
+}
+
 export class ServerConversationManager {
-  private client: Anthropic
+  private client: AnthropicBedrock
   private systemPrompt: string
   private apiMessages: APIMessage[] = []
-  private tools: Anthropic.Tool[]
+  private tools: ToolDefinition[]
   private toolHandlers: Record<string, (input: Record<string, unknown>) => Promise<string>>
   private totalTokens = { input: 0, output: 0 }
 
   constructor(promptKey: string) {
-    this.client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    // Bedrock SDK — uses IAM credentials from environment (ECS task role)
+    // No API key needed
+    this.client = new AnthropicBedrock({
+      awsRegion: AWS_REGION,
     })
     this.systemPrompt = systemPrompts[promptKey] ?? rgmExpertPrompt
     const { definitions, handlers } = createToolHandlers()
@@ -53,8 +64,8 @@ export class ServerConversationManager {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: this.systemPrompt,
-        messages: this.apiMessages as Anthropic.MessageParam[],
-        tools: this.tools,
+        messages: this.apiMessages as MessageParam[],
+        tools: this.tools as Tool[],
       })
 
       let fullText = ''

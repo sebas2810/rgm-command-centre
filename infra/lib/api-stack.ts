@@ -3,8 +3,8 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as ecs from 'aws-cdk-lib/aws-ecs'
 import * as ecr from 'aws-cdk-lib/aws-ecr'
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import * as rds from 'aws-cdk-lib/aws-rds'
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as logs from 'aws-cdk-lib/aws-logs'
 import { Construct } from 'constructs'
 
@@ -23,11 +23,6 @@ export class ApiStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props)
-
-    // Anthropic API Key (must be created manually in Secrets Manager first)
-    const anthropicSecret = secretsmanager.Secret.fromSecretNameV2(
-      this, 'AnthropicKey', 'rgm/anthropic-api-key'
-    )
 
     // ECR Repository for CI/CD image pushes
     const repo = new ecr.Repository(this, 'ApiRepo', {
@@ -63,11 +58,15 @@ export class ApiStack extends cdk.Stack {
         DB_HOST: props.dbEndpoint,
         DB_PORT: props.dbPort,
         DB_NAME: props.dbName,
+        AWS_REGION: props.env?.region ?? 'eu-west-1',
+        // Set BEDROCK_KNOWLEDGE_BASE_ID after creating a Knowledge Base
+        ...(process.env.BEDROCK_KNOWLEDGE_BASE_ID
+          ? { BEDROCK_KNOWLEDGE_BASE_ID: process.env.BEDROCK_KNOWLEDGE_BASE_ID }
+          : {}),
       },
       secrets: {
         DB_USERNAME: ecs.Secret.fromSecretsManager(props.dbSecret, 'username'),
         DB_PASSWORD: ecs.Secret.fromSecretsManager(props.dbSecret, 'password'),
-        ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(anthropicSecret),
       },
       healthCheck: {
         command: ['CMD-SHELL', 'curl -f http://localhost:3001/api/health || exit 1'],
@@ -114,7 +113,32 @@ export class ApiStack extends cdk.Stack {
 
     // Grant RDS access
     props.dbSecret.grantRead(taskDef.taskRole)
-    anthropicSecret.grantRead(taskDef.taskRole)
+
+    // Grant Bedrock access — Claude model invocation + Knowledge Base retrieval
+    taskDef.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream',
+      ],
+      resources: [
+        // Claude Sonnet 4 — direct + cross-region inference
+        `arn:aws:bedrock:${props.env?.region ?? 'eu-west-1'}::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0`,
+        `arn:aws:bedrock:eu-west-1:*:inference-profile/eu.anthropic.claude-sonnet-4-20250514-v1:0`,
+      ],
+    }))
+
+    // Bedrock Knowledge Base — RAG retrieval (all KBs in the account)
+    taskDef.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:Retrieve',
+        'bedrock:RetrieveAndGenerate',
+      ],
+      resources: [
+        `arn:aws:bedrock:${props.env?.region ?? 'eu-west-1'}:${cdk.Aws.ACCOUNT_ID}:knowledge-base/*`,
+      ],
+    }))
 
     // Outputs
     new cdk.CfnOutput(this, 'AlbDnsName', {

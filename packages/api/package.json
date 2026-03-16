@@ -16,7 +16,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
+    "@anthropic-ai/bedrock-sdk": "^0.26.4",
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.1009.0",
     "@prisma/client": "^6.9.0",
     "@rgm/shared": "^1.0.0",
     "cors": "^2.8.5",

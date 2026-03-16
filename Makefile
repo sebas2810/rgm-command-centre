@@ -69,12 +69,15 @@ deploy-frontend: ## Build frontend and sync to S3 + invalidate CloudFront
 	aws cloudfront create-invalidation --distribution-id $$CF_DIST --paths "/*"
 
 # ─── AWS First-time Setup ──────────────────────────────────────
-aws-setup: ## One-time: create Anthropic API key secret + bootstrap CDK
-	@echo "→ Creating Anthropic API key secret in Secrets Manager..."
-	@read -p "Enter your Anthropic API key: " KEY && \
-	aws secretsmanager create-secret --name rgm/anthropic-api-key --secret-string "$$KEY" --region eu-west-1
+aws-setup: ## One-time: bootstrap CDK + enable Bedrock model access
 	@echo "→ Bootstrapping CDK..."
 	cd infra && npx cdk bootstrap
+	@echo ""
+	@echo "✓ CDK bootstrapped. Next steps:"
+	@echo "  1. Enable Claude Sonnet 4 in Bedrock console (eu-west-1)"
+	@echo "  2. (Optional) Create a Knowledge Base in Bedrock console"
+	@echo "     and set BEDROCK_KNOWLEDGE_BASE_ID in the ECS task environment"
+	@echo "  3. Run: make deploy"
 
 # ─── Help ───────────────────────────────────────────────────────
 help: ## Show this help

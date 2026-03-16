@@ -20,7 +20,7 @@ export function SettingsPage() {
             Backend API
           </label>
           <p className="text-xs text-slate-500 mb-4">
-            Claude API key is managed server-side. The AI agent and all tool execution runs on the backend.
+            Powered by Amazon Bedrock. No API keys — uses IAM role authentication. AI agent and tool execution runs server-side.
           </p>
 
           <div className="flex items-center gap-3">
@@ -53,12 +53,16 @@ export function SettingsPage() {
           <h3 className="text-sm font-medium text-slate-200 mb-3">Model Configuration</h3>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Platform</span>
+              <span className="text-slate-300 font-mono">Amazon Bedrock (eu-west-1)</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Model</span>
-              <span className="text-slate-300 font-mono">Claude Sonnet 4 (claude-sonnet-4-20250514)</span>
+              <span className="text-slate-300 font-mono">Claude Sonnet 4</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Tools</span>
-              <span className="text-slate-300">10 RGM analysis tools (MCP server)</span>
+              <span className="text-slate-300">11 RGM tools (10 analysis + 1 Knowledge Base RAG)</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Database</span>
