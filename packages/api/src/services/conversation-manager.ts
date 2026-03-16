@@ -1,12 +1,12 @@
-import AnthropicBedrock from '@anthropic-ai/bedrock-sdk'
 import type { MessageParam, Tool } from '@anthropic-ai/sdk/resources/messages'
+import { getBedrockClient } from '../lib/bedrock.js'
+import { recordBedrockSuccess, recordBedrockFailure } from './health-monitor.js'
 import { planValidatorPrompt, rgmExpertPrompt, tradeNarrativePrompt } from './system-prompts.js'
 import { createToolHandlers } from '../mcp/tool-registry.js'
 
 // Bedrock model ID — Claude Sonnet 4 (cross-region inference for eu-west-1)
 const MODEL = process.env.BEDROCK_MODEL_ID ?? 'eu.anthropic.claude-sonnet-4-20250514-v1:0'
 const MAX_TOKENS = 4096
-const AWS_REGION = process.env.AWS_REGION ?? 'eu-west-1'
 
 const systemPrompts: Record<string, string> = {
   rgmExpert: rgmExpertPrompt,
@@ -34,7 +34,6 @@ type ToolDefinition = {
 }
 
 export class ServerConversationManager {
-  private client: AnthropicBedrock
   private systemPrompt: string
   private apiMessages: APIMessage[] = []
   private tools: ToolDefinition[]
@@ -42,11 +41,6 @@ export class ServerConversationManager {
   private totalTokens = { input: 0, output: 0 }
 
   constructor(promptKey: string) {
-    // Bedrock SDK — uses IAM credentials from environment (ECS task role)
-    // No API key needed
-    this.client = new AnthropicBedrock({
-      awsRegion: AWS_REGION,
-    })
     this.systemPrompt = systemPrompts[promptKey] ?? rgmExpertPrompt
     const { definitions, handlers } = createToolHandlers()
     this.tools = definitions
@@ -60,7 +54,8 @@ export class ServerConversationManager {
 
   private async processLoop(callbacks: SSECallbacks): Promise<void> {
     try {
-      const stream = this.client.messages.stream({
+      const client = getBedrockClient()
+      const stream = client.messages.stream({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: this.systemPrompt,
@@ -79,6 +74,7 @@ export class ServerConversationManager {
 
       // Wait for the full message
       const finalMessage = await stream.finalMessage()
+      recordBedrockSuccess()
 
       // Track tokens
       this.totalTokens.input += finalMessage.usage.input_tokens
@@ -127,6 +123,7 @@ export class ServerConversationManager {
       this.apiMessages.push({ role: 'assistant', content: fullText })
       callbacks.onDone({ inputTokens: this.totalTokens.input, outputTokens: this.totalTokens.output })
     } catch (err) {
+      recordBedrockFailure()
       callbacks.onError(err instanceof Error ? err.message : 'Unknown error')
     }
   }
