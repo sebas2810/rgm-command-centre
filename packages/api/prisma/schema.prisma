@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core Entities ────────────────────────────────────────────
+
+model Segment {
+  id              String   @id
+  name            String
+  wobPct          Float
+  catSharePct     Float
+  catShareDeltaPp Float
+  brandSharePct   Float
+  gpPct           Float
+  priceIndex      Int
+  avgPricePerKg   Float
+  valueSalesM     Float
+  yoyGrowthPct    Float
+  parentGroup     String
+
+  brands          Brand[]
+  deviations      Deviation[]
+  segmentTargets  SegmentTarget[]
+  promoEvents     PromoCalendarEvent[]
+  packPrices      PackPriceEntry[]
+  skuShareValues  SKUShareValue[]
+  assortmentRecs  AssortmentRecommendation[]
+}
+
+model Brand {
+  id              String   @id
+  name            String
+  displayName     String
+  segmentId       String
+  segment         Segment  @relation(fields: [segmentId], references: [id])
+  pricePosition   String
+  priceCorridor   String
+  priceLeadership String
+  priceIndexVsPL  Int?
+  role            String
+  profitRole      String
+  sharePct        Float
+  shareDeltaPp    Float
+  gpPct           Float
+  strategy        String
+  actions         String[]
+  logoColor       String
+
+  retailerPricing RetailerPricing[]
+  promoEfficiency PromoEfficiency[]
+  promoEvents     PromoCalendarEvent[]
+}
+
+model Retailer {
+  id                String   @id
+  groupId           String
+  name              String
+  displayName       String
+  channelType       String
+  logoColor         String
+  marketSharePct    Float
+  yogurtSharePct    Float
+  relationshipScore Int
+  negotiationStatus String
+  keyConstraints    String[]
+  skuCount          Int
+  fairShareSkuCount Int
+
+  retailerPricing  RetailerPricing[]
+  crossElasticity  CrossElasticityEntry[]
+  promoEfficiency  PromoEfficiency[]
+  promoEvents      PromoCalendarEvent[]
+  assortmentRecs   AssortmentRecommendation[]
+  deviations       Deviation[]
+  retailerTargets  RetailerTarget[]
+  promoRecs        PromoRecommendation[]
+}
+
+model Competitor {
+  id             String   @id
+  name           String
+  isPrivateLabel Boolean
+  retailerId     String?
+  revenueIndex   Int
+  segments       String[]
+  pricePosition  String
+}
+
+// ─── Plan Data ────────────────────────────────────────────────
+
+model AnnualPlan {
+  id          String @id @default("current")
+  year        Int
+  category    String
+  market      String
+  status      String
+  overallKPIs Json
+}
+
+model SegmentTarget {
+  id                 String  @id @default(cuid())
+  segmentId          String
+  segment            Segment @relation(fields: [segmentId], references: [id])
+  volumeIx           Int
+  netSalesIx         Int
+  salesMarginIx      Int
+  salesMarginDeltaPp Float
+  tradeMarginIx      Int
+  tradeMarginDeltaPp Float
+  status             String
+}
+
+model RetailerTarget {
+  id                 String   @id @default(cuid())
+  retailerId         String
+  retailer           Retailer @relation(fields: [retailerId], references: [id])
+  volumeIx           Int
+  netSalesIx         Int
+  salesMarginIx      Int
+  salesMarginDeltaPp Float
+  tradeMarginIx      Int
+  tradeMarginDeltaPp Float
+  status             String
+}
+
+model BuildingBlock {
+  id          String @id
+  label       String
+  valuePp     Float
+  valueM      Float
+  type        String
+  color       String
+  description String
+}
+
+model Deviation {
+  id              String    @id
+  segmentId       String
+  segment         Segment   @relation(fields: [segmentId], references: [id])
+  retailerId      String?
+  retailer        Retailer? @relation(fields: [retailerId], references: [id])
+  metric          String
+  planned         Float
+  actual          Float
+  gapPct          Float
+  gapAbsolute     Float
+  severity        String
+  rootCause       String
+  rootCauseDetail String
+  detectedDate    String
+  trending        String
+  recommendedAction String?
+}
+
+// ─── Pricing ──────────────────────────────────────────────────
+
+model RetailerPricing {
+  id               String   @id @default(cuid())
+  brandId          String
+  brand            Brand    @relation(fields: [brandId], references: [id])
+  retailerId       String
+  retailer         Retailer @relation(fields: [retailerId], references: [id])
+  currentIndex     Int
+  recommendedIndex Int
+  competitiveness  String
+  rationale        String
+
+  @@unique([brandId, retailerId])
+}
+
+model CrossElasticityEntry {
+  id             String   @id @default(cuid())
+  brandId        String
+  retailerId     String
+  retailer       Retailer @relation(fields: [retailerId], references: [id])
+  retentionScore Float
+  appealScore    Float
+  selfElasticity Float
+  quadrant       String
+  keyCrossEffect String
+
+  @@unique([brandId, retailerId])
+}
+
+// ─── Promo ────────────────────────────────────────────────────
+
+model PromoEfficiency {
+  id                 String   @id @default(cuid())
+  brandId            String
+  brand              Brand    @relation(fields: [brandId], references: [id])
+  retailerId         String
+  retailer           Retailer @relation(fields: [retailerId], references: [id])
+  promoValueSalesK   Float
+  vsodPct            Float
+  vsodEvolutionPct   Float
+  valueUpliftPct     Float
+  isEfficient        Boolean
+
+  @@unique([brandId, retailerId])
+}
+
+model PromoCalendarEvent {
+  id                String   @id
+  brandId           String
+  brand             Brand    @relation(fields: [brandId], references: [id])
+  segmentId         String
+  segment           Segment  @relation(fields: [segmentId], references: [id])
+  retailerId        String
+  retailer          Retailer @relation(fields: [retailerId], references: [id])
+  mechanic          String
+  mechanicLabel     String
+  startWeek         Int
+  endWeek           Int
+  discountPct       Float
+  expectedUpliftPct Float
+  estimatedValueK   Float
+  isOptimized       Boolean
+  conflictFlag      String?
+}
+
+model PromoRecommendation {
+  id             String   @id @default(cuid())
+  retailerId     String
+  retailer       Retailer @relation(fields: [retailerId], references: [id])
+  area           String
+  recommendation String
+  impact         String
+}
+
+// ─── Pack ─────────────────────────────────────────────────────
+
+model PackPriceEntry {
+  id            String  @id @default(cuid())
+  brandId       String
+  segmentId     String
+  segment       Segment @relation(fields: [segmentId], references: [id])
+  packSize      String
+  unitPrice     Float
+  pricePerKg    Float
+  gpPct         Float
+  isIdeal       Boolean @default(false)
+}
+
+model SKUShareValue {
+  id            String  @id @default(cuid())
+  segmentId     String
+  segment       Segment @relation(fields: [segmentId], references: [id])
+  channelId     String
+  skuSharePct   Float
+  valueSharePct Float
+  gapPp         Float
+  assessment    String
+}
+
+model AssortmentRecommendation {
+  id                String   @id @default(cuid())
+  retailerId        String
+  retailer          Retailer @relation(fields: [retailerId], references: [id])
+  segmentId         String
+  segment           Segment  @relation(fields: [segmentId], references: [id])
+  actualSkuCount    Int
+  fairShareSkuCount Int
+  listingOpps       Int
+  action            String
+}

@@ -1,0 +1,63 @@
+import type { Competitor } from '../../types/segment'
+
+export const competitors: Competitor[] = [
+  {
+    id: 'hacendado',
+    name: 'Hacendado',
+    isPrivateLabel: true,
+    retailerId: 'mercadona',
+    revenueIndex: 123,
+    segments: ['bifidus', 'greek', 'protein', 'essentials-kids', 'kefir', 'immunity', 'light', 'kids'],
+    pricePosition: 'Low-Tier',
+  },
+  {
+    id: 'nestle',
+    name: 'Nestl\u00E9',
+    isPrivateLabel: false,
+    revenueIndex: 116,
+    segments: ['greek', 'essentials-kids', 'kids', 'light'],
+    pricePosition: 'Mid-Tier',
+  },
+  {
+    id: 'pastoret',
+    name: 'Pastoret',
+    isPrivateLabel: false,
+    revenueIndex: 119,
+    segments: ['greek', 'bifidus', 'kefir'],
+    pricePosition: 'Premium',
+  },
+  {
+    id: 'kaiku',
+    name: 'Kaiku',
+    isPrivateLabel: false,
+    revenueIndex: 113,
+    segments: ['kefir', 'bifidus', 'essentials-kids'],
+    pricePosition: 'Mid-Tier',
+  },
+  {
+    id: 'dia',
+    name: 'DIA',
+    isPrivateLabel: true,
+    retailerId: 'discounters',
+    revenueIndex: 110,
+    segments: ['essentials-kids', 'greek', 'bifidus', 'light'],
+    pricePosition: 'Low-Tier',
+  },
+  {
+    id: 'milbona',
+    name: 'Milbona (Lidl)',
+    isPrivateLabel: true,
+    retailerId: 'discounters',
+    revenueIndex: 109,
+    segments: ['greek', 'essentials-kids', 'protein', 'bifidus'],
+    pricePosition: 'Low-Tier',
+  },
+  {
+    id: 'sojasun',
+    name: 'Sojasun',
+    isPrivateLabel: false,
+    revenueIndex: 108,
+    segments: ['plant-based'],
+    pricePosition: 'Mid-Tier',
+  },
+]

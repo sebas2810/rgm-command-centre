@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rgm-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace=packages/frontend"],
+      "port": 5174
+    },
+    {
+      "name": "rgm-api",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "packages/api/src/index.ts"],
+      "port": 3001
+    }
+  ]
+}
